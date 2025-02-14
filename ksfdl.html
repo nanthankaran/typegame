@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Type Clash: Two-Player Showdown</title>
+  <script defer src="https://cdn.tailwindcss.com"></script>
+  <style>
+    textarea { transition: box-shadow 0.3s ease-in-out; }
+    textarea:focus { box-shadow: 0 0 20px rgba(255, 255, 255, 0.8); }
+    /* Popup Animation */
+    .popup {
+      animation: fadeInScale 0.5s ease-in-out forwards;
+      transform: scale(0);
+      opacity: 0;
+    }
+    @keyframes fadeInScale {
+      0% { transform: scale(0); opacity: 0; }
+      100% { transform: scale(1); opacity: 1; }
+    }
+    /* Shaking Trophy */
+    .shake {
+      animation: shake 0.8s ease-in-out infinite alternate;
+    }
+    @keyframes shake {
+      0% { transform: rotate(-5deg); }
+      100% { transform: rotate(5deg); }
+    }
+  </style>
+</head>
+<body class="bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 min-h-screen flex flex-col items-center justify-center space-y-6 p-6">
+  <h1 class="text-5xl font-extrabold text-white animate-pulse">Type Clash Showdown: 2-Player Mode</h1>
+  <div id="rules" class="bg-white p-5 rounded-lg shadow-lg text-black max-w-lg">
+    <h2 class="text-2xl font-bold">Game Rules:</h2>
+    <ul class="list-disc pl-5">
+      <li>Each player types as many words as possible within the time limit.</li>
+      <li>Scores are based on streaks, letter variety, real words, and avoiding the BOMB letter.</li>
+      <li>Player with the highest score wins.</li>
+    </ul>
+  </div>
+  <label class="text-white text-xl font-bold">Choose a BOMB Letter:</label>
+  <input type="text" id="bombLetter" maxlength="1" class="w-12 h-12 text-center text-black font-bold text-2xl border-2 rounded-lg">
+  <div id="timer" class="text-white text-2xl font-bold mb-4"></div>
+  <textarea id="playerInput" class="w-96 h-36 p-2 text-black border-2 rounded-lg hidden"></textarea>
+  <button id="startButton" class="bg-green-500 text-white px-5 py-2 rounded-lg hover:bg-green-700">Start Game</button>
+  <button id="nextButton" class="bg-blue-500 text-white px-5 py-2 rounded-lg hover:bg-blue-700 hidden">Next Player</button>
+  <!-- Overlay and Results Popup -->
+  <div id="overlay" class="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center hidden">
+    <div id="results" class="bg-white p-8 rounded-lg shadow-xl text-center popup hidden">
+      <h2 class="text-3xl font-bold mb-4">Game Results :tada:</h2>
+      <p id="resultText" class="text-lg font-medium"></p>
+      <button onclick="closeResults()" class="mt-4 bg-red-500 text-white px-4 py-2 rounded-lg hover:bg-red-700">Close</button>
+    </div>
+  </div>
+  <script>
+    let currentPlayer = 1;
+    let timer;
+    let time = 10;
+    const results = {};
+    let bombLetter = '';
+    document.getElementById('startButton').addEventListener('click', () => {
+      bombLetter = document.getElementById('bombLetter').value.trim().toLowerCase();
+      if (!bombLetter || !/^[a-zA-Z]$/.test(bombLetter)) {
+        alert("Please enter a valid BOMB letter.");
+        return;
+      }
+      document.getElementById('rules').classList.add('hidden');
+      document.getElementById('playerInput').classList.remove('hidden');
+      document.getElementById('bombLetter').disabled = true;
+      currentPlayer = 1;
+      document.getElementById('startButton').classList.add('hidden');
+      alert("Player 1's Turn!");
+      startTimer();
+    });
+    document.getElementById('nextButton').addEventListener('click', () => {
+      currentPlayer = 2;
+      document.getElementById('nextButton').classList.add('hidden');
+      alert("Player 2's Turn!");
+      startTimer();
+    });
+    function startTimer() {
+      time = 10;
+      document.getElementById('playerInput').disabled = false;
+      updateTimerDisplay();
+      timer = setInterval(() => {
+        time--;
+        updateTimerDisplay();
+        if (time <= 0) finishTurn();
+      }, 1000);
+    }
+    function updateTimerDisplay() {
+      document.getElementById('timer').innerText = `Player ${currentPlayer} Time: ${time}s`;
+    }
+    function finishTurn() {
+      clearInterval(timer);
+      results[`Player ${currentPlayer}`] = calculateFinalScore(document.getElementById('playerInput').value);
+      document.getElementById('playerInput').value = '';
+      document.getElementById('playerInput').disabled = true;
+      if (currentPlayer === 1) {
+        document.getElementById('nextButton').classList.remove('hidden');
+      } else {
+        showResults();
+      }
+    }
+    function calculateFinalScore(text) {
+      let score = 0;
+      text = text.toLowerCase();
+      // 1. Speed Streak King/Queen
+      const longestStreak = text.match(/(.)\1*/g)?.reduce((a, b) => a.length > b.length ? a : b, "").length || 0;
+      if (longestStreak >= 3) score += 5;
+      // 2. Letter Collector
+      const uniqueLetters = new Set(text.replace(/[^a-zA-Z]/g, "")).size;
+      if (uniqueLetters >= 10) score += 3;
+      // 3. Accidental Word Genius
+      const words = text.split(/\s+/);
+      const realWords = words.filter(word => word.length > 2);
+      score += realWords.length * 2;
+      // 4. The Bomb Letter Rule
+      if (text.includes(bombLetter)) score -= 5;
+      return score;
+    }
+    function showResults() {
+      const player1Score = results['Player 1'] || 0;
+      const player2Score = results['Player 2'] || 0;
+      let resultMessage = `
+        Player 1 Score: <strong>${player1Score}</strong><br>
+        Player 2 Score: <strong>${player2Score}</strong><br>
+      `;
+      if (player1Score > player2Score) {
+        resultMessage += `<div class="text-3xl mt-4 font-bold text-green-600">:trophy: Player 1 Wins!</div>`;
+      } else if (player2Score > player1Score) {
+        resultMessage += `<div class="text-3xl mt-4 font-bold text-blue-600 shake">:trophy: Player 2 Wins!</div>`;
+      } else {
+        resultMessage += `<div class="text-3xl mt-4 font-bold text-yellow-600">:handshake: It's a Tie!</div>`;
+      }
+      document.getElementById('resultText').innerHTML = resultMessage;
+      document.getElementById('overlay').classList.remove('hidden');
+      document.getElementById('results').classList.remove('hidden');
+    }
+    function closeResults() {
+      document.getElementById('overlay').classList.add('hidden');
+      document.getElementById('results').classList.add('hidden');
+      document.getElementById('startButton').classList.remove('hidden');
+    }
+  </script>
+</body>
+</html>
